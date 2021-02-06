@@ -3,6 +3,8 @@
 import * as express from 'express';
 import cookieParser = require('cookie-parser');
 import bodyParser = require('body-parser');
+import * as bodyParserXml from 'body-parser-xml';
+import * as xml2js from 'xml2js';
 import { SwaggerUI } from './swagger.ui';
 import { SwaggerRouter } from './swagger.router';
 import { SwaggerParameters } from './swagger.parameters';
@@ -31,6 +33,11 @@ export class ExpressAppConfig {
         this.app.use(bodyParser.text());
         this.app.use(bodyParser.json());
 
+        this.app.use(this.configureXmlParser(appOptions));
+        this.app.use(this.configureXmlSanitiser(appOptions));
+
+        // this.app.use(function (req, res, next){console.log(req.body);next();});
+
         this.app.use(this.configureLogger(appOptions.logging));
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: false }));
@@ -44,6 +51,47 @@ export class ExpressAppConfig {
         this.app.use(new SwaggerRouter().initialize(this.routingOptions));
 
         this.app.use(this.errorHandler);
+    }
+
+    private configureXmlParser(appOptions: Oas3AppOptions){
+        bodyParserXml(bodyParser);
+        const bodyParserPlusXMLParser: any = bodyParser;
+        let xmlTagNameProcessors = [xml2js.processors.stripPrefix];
+        let xmlValueProcessors = [xml2js.processors.parseNumbers, xml2js.processors.parseBooleans];
+        let xmlOptions = appOptions.xml;
+        if (xmlOptions != undefined) {
+            if(xmlOptions.tagNameProcessors != undefined
+                && Array.isArray(xmlOptions.tagNameProcessors)){
+                    xmlTagNameProcessors = xmlOptions.tagNameProcessors;
+            }
+            if(xmlOptions.valueProcessors != undefined
+                && Array.isArray(xmlOptions.valueProcessors)){
+                    xmlValueProcessors = xmlOptions.valueProcessors;
+            }
+
+        }
+        return bodyParserPlusXMLParser.xml({
+            xmlParseOptions: {
+                mergeAttrs :true,
+                normalize: true,
+                normalizeTags: false,
+                explicitRoot :false,
+                explicitArray: false,
+                tagNameProcessors:xmlTagNameProcessors,
+                valueProcessors: xmlValueProcessors
+            }
+        });
+    }
+
+    private configureXmlSanitiser(appOptions: Oas3AppOptions){
+        let xmlSanitizerProcessor = function(req, res, next){next()};
+        let xmlOptions = appOptions.xml;
+        if (xmlOptions != undefined) {
+            if(xmlOptions.sanitiseProcessors != undefined){
+                    xmlSanitizerProcessor = xmlOptions.sanitiseProcessors;
+            }
+        }
+        return xmlSanitizerProcessor;
     }
 
     private setOpenApiValidatorOptions(definitionPath: string, appOptions: Oas3AppOptions) {

@@ -2,6 +2,7 @@
 
 var path = require('path');
 var http = require('http');
+var xml2js = require('xml2js');
 
 var oas3Tools = require('oas3-tools');
 var serverPort = 8080;
@@ -9,6 +10,24 @@ var serverPort = 8080;
 function validate(request, scopes, schema) {
     // security stuff here
     return true;
+}
+
+function doNothing(value, name){
+    //console.log(name, value);
+    return value;
+}
+
+function sanitiser(req, res, next){
+    //console.log(req.body);
+    let body = req.body;
+    if (body.photoUrls){
+        if (!Array.isArray(body.photoUrls) && typeof body.photoUrls === 'string'){
+            body.photoUrls = [body.photoUrls];
+        }
+    }
+    //console.log(body);
+    req.body = body;
+    next();
 }
 
 // swaggerRouter configuration
@@ -28,6 +47,11 @@ var options = {
                 api_key: validate
             }
         }
+    },
+    xml:{
+        tagNameProcessors: [xml2js.processors.stripPrefix],
+        valueProcessors: [xml2js.processors.parseNumbers, xml2js.processors.parseBooleans, doNothing],
+        sanitiseProcessors: sanitiser
     }
 }; 
 
