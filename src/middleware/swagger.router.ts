@@ -105,6 +105,10 @@ export class SwaggerRouter {
       let handlerName;
       let rErr;
 
+      if (isUndefined(req.openapi)) {
+        return next(rErr);
+      }
+      
       debug('%s %s', req.method, req.url);
       debug('  Will process: %s', isUndefined(operation) ? 'no' : 'yes');
 
